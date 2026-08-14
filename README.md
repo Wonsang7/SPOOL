@@ -70,13 +70,6 @@ Generation and reconstruction dictionaries are deliberately separated. Photon co
 
 The synthetic benchmark requires no external data. The experimental photon-count data are not redistributed here.
 
-- Dual-labeled FLIM: place `fov3_cube.npz`, `fov3_calib.npy`, and `fov3_FULLIMG_mle.npz` in `data/dual_labeled_flim/`, or set `SPOOL_FLIM_DATA_DIR`.
-- Hyperspectral: place `decay_YXB_lambda.npy` in `data/hyperspectral/`, or set `SPOOL_HYPERSPECTRAL_RAW`. An optional pre-collapsed cube may be supplied as `hyperspectral_full.npy` or through `SPOOL_HYPERSPECTRAL_CUBE`.
-
-Experimental outputs default to `results/dual_labeled_flim/` and `results/hyperspectral/`. Override them with `SPOOL_FLIM_RESULTS_DIR` and `SPOOL_HYPERSPECTRAL_RESULTS_DIR`.
-
-The supplied iteration-selection and model-mismatch drivers are not included in this release because they depend on companion modules (`oracle_pooled_control.py` and `sensitivity_sweep_pipeline.py`) that were not available in the source bundle. They should be added together with those modules so that every public script is runnable.
-
 ## Citation
 
 Citation information will be added when the manuscript is publicly available.
