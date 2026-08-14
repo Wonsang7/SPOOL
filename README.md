@@ -1,0 +1,86 @@
+# SPOOL: photon-efficient quantitative imaging
+
+Reference simulation code for **Spatially pooling photon information enables photon-efficient quantitative imaging**.
+
+SPOOL (Spatially Pooled Optical Observation Likelihood) jointly estimates source-space component amplitudes from photon-count data using a known point-spread function (PSF) and a contrast dictionary. This repository reproduces the homogeneous and heterogeneous multi-emitter FLIM benchmarks and includes the dual-labeled FLIM and hyperspectral analysis drivers.
+
+## Implemented manuscript settings
+
+- 15 emitters on a 100 x 100 pixel field
+- 50 nm sampling and a pixel-integrated 200 nm-FWHM Gaussian PSF
+- 256 time bins at 0.0977 ns per bin and a 150 ps-FWHM Gaussian IRF
+- ground-truth lifetimes of 2 and 4 ns
+- lifetime-agnostic reconstruction dictionary: 11 bases from 1.0 to 5.0 ns in 0.4 ns steps
+- foreground signal-to-background ratio of 50 at every photon level
+- eight Poisson trials per photon level
+- SPOOL: 50 iterations with damping exponent 0.9
+
+## Installation
+
+Python 3.10 or newer is recommended.
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+PyTorch is optional. If a CUDA-enabled PyTorch installation is available, the iterative reconstruction uses the GPU; otherwise it falls back to NumPy on the CPU.
+
+Optional GPU and FPFLI dependencies can be installed with:
+
+```bash
+pip install -r requirements-optional.txt
+```
+
+## Run
+
+```bash
+python run_multiemitter_benchmark.py
+```
+
+Outputs are written to `results/multiemitter/`. To use another location:
+
+```bash
+SPOOL_RESULTS_DIR=/path/to/results python run_multiemitter_benchmark.py
+```
+
+The default run includes pixel-wise Poisson MLE, NC-PCA followed by NNLS, phasor analysis, and SPOOL. FPFLI is optional because it requires the authors' external repository and model weights:
+
+```bash
+FPFLI_REPO=/path/to/FPFLI \
+FPFLI_CKPT=/path/to/retrained_checkpoint.pth \
+python run_multiemitter_benchmark.py
+```
+
+## Files
+
+- `run_multiemitter_benchmark.py`: canonical manuscript benchmark runner
+- `flim_sim_ncpca.py`: forward model, scene generation, NC-PCA, phasor, and sequential baseline utilities
+- `fpfli_official_adapter.py`: optional adapter for the external FPFLI implementation
+- `download_official_weights.py`: optional helper for official FPFLI weights
+- `run_dual_labeled_flim.py`: dual-labeled experimental FLIM analysis
+- `run_hyperspectral.py`: experimental hyperspectral analysis
+
+## Reproducibility notes
+
+Generation and reconstruction dictionaries are deliberately separated. Photon counts are generated using the two true lifetimes, whereas every dictionary-based reconstruction uses the same lifetime-agnostic 11-component dictionary. Random seeds are fixed in the runner. Numerical results may differ slightly between CPU and GPU backends because of floating-point arithmetic.
+
+## Experimental data
+
+The synthetic benchmark requires no external data. The experimental photon-count data are not redistributed here.
+
+- Dual-labeled FLIM: place `fov3_cube.npz`, `fov3_calib.npy`, and `fov3_FULLIMG_mle.npz` in `data/dual_labeled_flim/`, or set `SPOOL_FLIM_DATA_DIR`.
+- Hyperspectral: place `decay_YXB_lambda.npy` in `data/hyperspectral/`, or set `SPOOL_HYPERSPECTRAL_RAW`. An optional pre-collapsed cube may be supplied as `hyperspectral_full.npy` or through `SPOOL_HYPERSPECTRAL_CUBE`.
+
+Experimental outputs default to `results/dual_labeled_flim/` and `results/hyperspectral/`. Override them with `SPOOL_FLIM_RESULTS_DIR` and `SPOOL_HYPERSPECTRAL_RESULTS_DIR`.
+
+The supplied iteration-selection and model-mismatch drivers are not included in this release because they depend on companion modules (`oracle_pooled_control.py` and `sensitivity_sweep_pipeline.py`) that were not available in the source bundle. They should be added together with those modules so that every public script is runnable.
+
+## Citation
+
+Citation information will be added when the manuscript is publicly available.
+
+## License
+
+The original SPOOL code in this repository is released under the MIT License. External FPFLI code and weights remain subject to their original license and are not redistributed here.
