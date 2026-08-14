@@ -53,6 +53,34 @@ FPFLI_CKPT=/path/to/retrained_checkpoint.pth \
 python run_multiemitter_benchmark.py
 ```
 
+### Single-emitter, oracle, and supplementary controls
+
+```bash
+python oracle_pooled_control.py
+python run_iteration_selection.py
+python sensitivity_sweep_pipeline.py
+python run_sequential_controls.py
+```
+
+These scripts implement the manuscript settings: a pixel-integrated 200 nm-FWHM
+Gaussian PSF at 50 nm sampling, a fixed single-emitter background of
+`1e-4` counts per pixel per time bin, a lifetime-agnostic 11-component
+dictionary, 50 SPOOL iterations, and damping exponent 0.9. The sensitivity
+driver generates its own condition-specific background levels for the stated
+signal-to-background-ratio sweep.
+
+### FPFLI retraining
+
+```bash
+python make_fpfli_trainset.py
+python Training_LLE.py
+```
+
+The first command generates `Training_data.mat` from the matched forward model.
+The generated 26 MB binary is intentionally excluded from Git because it can be
+recreated deterministically. Set `FPFLI_TRAINING_DATA` to change its location and
+`FPFLI_TRAINING_OUTPUT` to change the checkpoint directory.
+
 ## Files
 
 - `run_multiemitter_benchmark.py`: canonical manuscript benchmark runner
@@ -61,6 +89,12 @@ python run_multiemitter_benchmark.py
 - `download_official_weights.py`: optional helper for official FPFLI weights
 - `run_dual_labeled_flim.py`: dual-labeled experimental FLIM analysis
 - `run_hyperspectral.py`: experimental hyperspectral analysis
+- `oracle_pooled_control.py`: single-emitter Monte Carlo, CRBs, 3x3 binning, and oracle pooled MLE
+- `run_iteration_selection.py`: fixed-iteration selection and PSF-perturbation analysis
+- `sensitivity_sweep_pipeline.py`: background, PSF, and background-rate mismatch sweeps
+- `run_sequential_controls.py`: Wiener, total-variation, and Richardson-Lucy sequential controls
+- `bias_ablation.py`: dictionary-spacing and early-stopping bias ablation
+- `make_fpfli_trainset.py`, `Training_LLE.py`, `Convmixer_tau.py`, `utils.py`: matched FPFLI retraining pipeline
 
 ## Reproducibility notes
 
@@ -69,6 +103,11 @@ Generation and reconstruction dictionaries are deliberately separated. Photon co
 ## Experimental data
 
 The synthetic benchmark requires no external data. The experimental photon-count data are not redistributed here.
+
+- Dual-labeled FLIM: place `fov3_cube.npz`, `fov3_calib.npy`, and `fov3_FULLIMG_mle.npz` in `data/dual_labeled_flim/`, or set `SPOOL_FLIM_DATA_DIR`.
+- Hyperspectral: place `decay_YXB_lambda.npy` in `data/hyperspectral/`, or set `SPOOL_HYPERSPECTRAL_RAW`. An optional pre-collapsed cube may be supplied as `hyperspectral_full.npy` or through `SPOOL_HYPERSPECTRAL_CUBE`.
+
+Experimental outputs default to `results/dual_labeled_flim/` and `results/hyperspectral/`. Override them with `SPOOL_FLIM_RESULTS_DIR` and `SPOOL_HYPERSPECTRAL_RESULTS_DIR`.
 
 ## Citation
 
