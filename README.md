@@ -60,6 +60,7 @@ python oracle_pooled_control.py
 python run_iteration_selection.py
 python sensitivity_sweep_pipeline.py
 python run_sequential_controls.py
+python runtime_benchmark.py
 ```
 
 These scripts implement the manuscript settings: a pixel-integrated 200 nm-FWHM
@@ -94,6 +95,7 @@ recreated deterministically. Set `FPFLI_TRAINING_DATA` to change its location an
 - `sensitivity_sweep_pipeline.py`: background, PSF, and background-rate mismatch sweeps
 - `run_sequential_controls.py`: Wiener, total-variation, and Richardson-Lucy sequential controls
 - `bias_ablation.py`: dictionary-spacing and early-stopping bias ablation
+- `runtime_benchmark.py`: f64/f32 GPU runtime, f64 CPU runtime, and peak GPU-memory benchmark
 - `make_fpfli_trainset.py`, `Training_LLE.py`, `Convmixer_tau.py`, `utils.py`: matched FPFLI retraining pipeline
 
 ## Reproducibility notes
