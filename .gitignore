@@ -8,4 +8,6 @@ results/
 *.npy
 *.pth
 *.pt
+Training_data.mat
+training_logs_*/
 .DS_Store
