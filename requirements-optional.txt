@@ -1,0 +1,3 @@
+# Optional GPU acceleration and FPFLI support
+torch>=2.1
+gdown>=5.0
