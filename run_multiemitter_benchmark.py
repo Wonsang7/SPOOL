@@ -20,12 +20,11 @@ THREE THINGS THIS VERSION GETS RIGHT
    proposed estimator -- now sees the same agnostic dictionary used on the real
    data. Phasor is dictionary-free and unaffected.
 
-2. FIXED DETECTION-FAILURE COST. fs.lifetime_at_points falls back to the mean of
-   whatever dictionary it is given when a method recovers no amplitude at a
-   point. With the two true bases that fallback is 2.0 ns; with the agnostic
-   dictionary can change that fallback silently. FALLBACK_TAU pins it to the
-   midpoint of the TRUE
-   lifetimes so the cost of a failure does not depend on dictionary width.
+2. FIXED DETECTION-FAILURE COST. fs.lifetime_at_points normally falls back to
+   the mean of whatever dictionary it is given when a method recovers no
+   amplitude at a point. FALLBACK_TAU pins that value to 3.0 ns, the midpoint
+   of the true 2- and 4-ns lifetimes, so the cost of a detection failure does
+   not change if the reconstruction dictionary is modified.
 
 3. BACKGROUND AT A CONSTANT SIGNAL-TO-BACKGROUND RATIO. A fixed background
    makes the ratio vary sixteenfold across the photon sweep, which is not what a
