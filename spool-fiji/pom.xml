@@ -26,6 +26,7 @@
 
     <organization>
         <name>Wellman Center for Photomedicine, MGH</name>
+        <url>https://wellman.massgeneral.org/</url>
     </organization>
 
     <licenses>
@@ -40,8 +41,44 @@
         <developer>
             <id>Wonsang7</id>
             <name>Wonsang Hwang</name>
+            <roles>
+                <role>developer</role>
+            </roles>
         </developer>
     </developers>
+
+    <contributors>
+        <contributor>
+            <name>SPOOL contributors</name>
+            <roles>
+                <role>developer</role>
+            </roles>
+        </contributor>
+    </contributors>
+
+    <mailingLists>
+        <mailingList>
+            <name>SPOOL project discussions</name>
+            <archive>https://github.com/Wonsang7/SPOOL/issues</archive>
+        </mailingList>
+    </mailingLists>
+
+    <scm>
+        <connection>scm:git:https://github.com/Wonsang7/SPOOL.git</connection>
+        <developerConnection>scm:git:https://github.com/Wonsang7/SPOOL.git</developerConnection>
+        <url>https://github.com/Wonsang7/SPOOL</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub Issues</system>
+        <url>https://github.com/Wonsang7/SPOOL/issues</url>
+    </issueManagement>
+
+    <ciManagement>
+        <system>GitHub Actions</system>
+        <url>https://github.com/Wonsang7/SPOOL/actions</url>
+    </ciManagement>
 
     <properties>
         <package-name>org.spool</package-name>
