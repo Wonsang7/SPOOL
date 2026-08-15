@@ -28,6 +28,93 @@ public final class SpoolModel {
         return p;
     }
 
+    /**
+     * Estimate the IRF center t0 (in time-bin units) directly from a photon-count cube.
+     *
+     * The fluorescence maximum itself is lifetime-dependent and is therefore a biased
+     * proxy for the IRF center. Instead, this estimator sums all pixels to obtain a
+     * high-SNR global decay, applies a five-point binomial smoothing kernel, and finds
+     * the strongest positive slope on the leading edge. A quadratic interpolation of
+     * the derivative gives a sub-bin estimate.
+     *
+     * Y layout: ((y * W) + x) * T + t.
+     */
+    public static double estimateIrfPeakBin(double[] Y, int H, int W, int T) {
+        if (T <= 0) throw new IllegalArgumentException("T must be positive");
+
+        final double[] hist = new double[T];
+        final int nPix = H * W;
+        for (int p = 0; p < nPix; p++) {
+            final int base = p * T;
+            for (int t = 0; t < T; t++) {
+                final double v = Y[base + t];
+                if (Double.isFinite(v) && v > 0.0) hist[t] += v;
+            }
+        }
+
+        double total = 0.0;
+        for (double v : hist) total += v;
+        if (!(total > 0.0)) return 0.0;
+
+        // Very short stacks: fall back to the global maximum.
+        if (T < 5) {
+            int imax = 0;
+            for (int t = 1; t < T; t++) if (hist[t] > hist[imax]) imax = t;
+            return imax;
+        }
+
+        // Five-point binomial smoothing [1, 4, 6, 4, 1] / 16,
+        // renormalized at the boundaries.
+        final int[] off = {-2, -1, 0, 1, 2};
+        final double[] wt = {1.0, 4.0, 6.0, 4.0, 1.0};
+        final double[] smooth = new double[T];
+        for (int t = 0; t < T; t++) {
+            double s = 0.0, sw = 0.0;
+            for (int j = 0; j < off.length; j++) {
+                final int q = t + off[j];
+                if (q < 0 || q >= T) continue;
+                s += wt[j] * hist[q];
+                sw += wt[j];
+            }
+            smooth[t] = s / sw;
+        }
+
+        // Central-difference derivative. The IRF center is well approximated by
+        // the maximum positive slope of an IRF-convolved exponential decay.
+        final double[] deriv = new double[T];
+        int best = 1;
+        double bestSlope = Double.NEGATIVE_INFINITY;
+        for (int t = 1; t < T - 1; t++) {
+            deriv[t] = 0.5 * (smooth[t + 1] - smooth[t - 1]);
+            if (deriv[t] > bestSlope) {
+                bestSlope = deriv[t];
+                best = t;
+            }
+        }
+
+        // If no positive leading edge is detectable, use the global maximum.
+        if (!(bestSlope > 0.0)) {
+            int imax = 0;
+            for (int t = 1; t < T; t++) if (hist[t] > hist[imax]) imax = t;
+            return imax;
+        }
+
+        // Parabolic interpolation around the derivative maximum for sub-bin t0.
+        double delta = 0.0;
+        if (best >= 2 && best <= T - 3) {
+            final double ym = deriv[best - 1];
+            final double y0 = deriv[best];
+            final double yp = deriv[best + 1];
+            final double denom = ym - 2.0 * y0 + yp;
+            if (Math.abs(denom) > 1e-15) {
+                delta = 0.5 * (ym - yp) / denom;
+                if (delta < -0.5) delta = -0.5;
+                if (delta > 0.5) delta = 0.5;
+            }
+        }
+        return best + delta;
+    }
+
     /** IRF-convolved, window-normalized exponential decay dictionary. */
     public static double[] decayBases(double[] tausNs, int nBins, double dtNs,
                                       double irfFwhmNs, double irfPeakBin) {
