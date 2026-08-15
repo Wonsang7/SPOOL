@@ -14,7 +14,7 @@
 
     <groupId>org.spool</groupId>
     <artifactId>spool_fiji</artifactId>
-    <version>0.1.1-SNAPSHOT</version>
+    <version>0.1.2-SNAPSHOT</version>
 
     <name>SPOOL for Fiji</name>
     <description>
