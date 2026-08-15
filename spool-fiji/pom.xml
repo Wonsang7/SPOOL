@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.scijava</groupId>
+        <artifactId>pom-scijava</artifactId>
+        <version>40.0.0</version>
+        <relativePath />
+    </parent>
+
+    <groupId>org.spool</groupId>
+    <artifactId>spool_fiji</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+
+    <name>SPOOL for Fiji</name>
+    <description>
+        Photon-efficient quantitative FLIM reconstruction: training-free
+        Poisson inverse with an explicit PSF forward operator (SPOOL).
+    </description>
+    <url>https://github.com/Wonsang7/SPOOL</url>
+    <inceptionYear>2026</inceptionYear>
+
+    <organization>
+        <name>Wellman Center for Photomedicine, MGH</name>
+    </organization>
+
+    <licenses>
+        <license>
+            <name>MIT</name>
+            <url>https://opensource.org/licenses/MIT</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>Wonsang7</id>
+            <name>Wonsang Hwang</name>
+        </developer>
+    </developers>
+
+    <properties>
+        <package-name>org.spool</package-name>
+        <license.licenseName>mit</license.licenseName>
+        <license.copyrightOwners>Wonsang Hwang</license.copyrightOwners>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>net.imagej</groupId>
+            <artifactId>ij</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.scijava</groupId>
+            <artifactId>scijava-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+        </dependency>
+    </dependencies>
+
+    <repositories>
+        <repository>
+            <id>scijava.public</id>
+            <url>https://maven.scijava.org/content/groups/public</url>
+        </repository>
+    </repositories>
+</project>
