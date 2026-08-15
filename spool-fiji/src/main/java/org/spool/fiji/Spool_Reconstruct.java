@@ -31,9 +31,6 @@ public class Spool_Reconstruct implements Command {
     @Parameter(label = "IRF FWHM (ns)", min = "0")
     private double irfFwhmNs = 0.150;
 
-    @Parameter(label = "IRF peak position (bins)")
-    private double irfPeakBin = 5.1177;
-
     @Parameter(label = "Dictionary tau min (ns)")
     private double tauMin = 1.0;
 
@@ -78,6 +75,11 @@ public class Spool_Reconstruct implements Command {
             for (int p = 0; p < H * W; p++) Y[p * T + t] = px[p];
         }
 
+        final double irfPeakBin = SpoolModel.estimateIrfPeakBin(Y, H, W, T);
+        IJ.log(String.format(
+                "SPOOL: auto-detected t0 = %.3f bins (%.4f ns)",
+                irfPeakBin, irfPeakBin * dtNs));
+
         final double sigmaPx = (psfFwhmNm / SpoolModel.FWHM_TO_SIGMA) / pixelNm;
         final int[] psfSize = new int[2];
         final double[] psf = SpoolModel.gaussianPsf(sigmaPx, psfSize);
@@ -85,7 +87,9 @@ public class Spool_Reconstruct implements Command {
         final double[] D = SpoolModel.decayBases(taus, T, dtNs, irfFwhmNs, irfPeakBin);
         final int K = taus.length;
 
-        IJ.showStatus(String.format("SPOOL: reconstructing (K=%d, %d iterations)", K, iterations));
+        IJ.showStatus(String.format(
+                "SPOOL: reconstructing (t0=%.2f bins, K=%d, %d iterations)",
+                irfPeakBin, K, iterations));
         final long t0 = System.currentTimeMillis();
         final double[] A = SpoolCore.joint(Y, D, psf, H, W, T, K,
                 psfSize[0], psfSize[1], background, iterations, eta, EPS);
@@ -121,6 +125,6 @@ public class Spool_Reconstruct implements Command {
             new ImagePlus(imp.getShortTitle() + " SPOOL amplitudes", amps).show();
         }
 
-        IJ.showStatus(String.format("SPOOL: done in %.1f s", secs));
+        IJ.showStatus(String.format("SPOOL: done in %.1f s (t0=%.2f bins)", secs, irfPeakBin));
     }
 }
