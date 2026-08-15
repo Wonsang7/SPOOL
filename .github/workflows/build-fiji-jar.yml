@@ -1,0 +1,45 @@
+name: Build Fiji JAR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'spool-fiji/**'
+      - '.github/workflows/build-fiji-jar.yml'
+  pull_request:
+    paths:
+      - 'spool-fiji/**'
+      - '.github/workflows/build-fiji-jar.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build Fiji plugin JAR
+        run: mvn -B -f spool-fiji/pom.xml clean package -DskipTests
+
+      - name: Show built JAR
+        run: ls -lh spool-fiji/target/*.jar
+
+      - name: Upload Fiji JAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: spool-fiji-jar
+          path: spool-fiji/target/*.jar
+          if-no-files-found: error
+          retention-days: 30
