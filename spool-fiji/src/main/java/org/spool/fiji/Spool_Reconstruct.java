@@ -19,9 +19,8 @@ import org.spool.core.SpoolModel;
  * SPOOL: photon-efficient FLIM reconstruction (training-free Poisson inverse
  * with an explicit PSF forward operator).
  *
- * Input : an x-y-t stack of raw photon counts, one slice per TCSPC time bin.
- * Output: source-space intensity, lifetime, intensity-weighted lifetime, and
- *         optionally the K component amplitude maps.
+ * Input : an x-y-t photon-count stack, one slice per TCSPC time bin.
+ * Output: SPOOL intensity, lifetime, and intensity-weighted lifetime maps.
  */
 @Plugin(type = Command.class, menuPath = "Plugins>SPOOL>SPOOL Reconstruct (FLIM)")
 public class Spool_Reconstruct implements Command {
@@ -63,11 +62,8 @@ public class Spool_Reconstruct implements Command {
     @Parameter(label = "Damping exponent eta", min = "0.1", max = "1.0")
     private double eta = 0.9;
 
-    @Parameter(label = "Amplitude mask threshold (fraction of max)", min = "0")
+    @Parameter(label = "Intensity mask threshold (fraction of max)", min = "0")
     private double maskFrac = 0.05;
-
-    @Parameter(label = "Show component amplitude maps")
-    private boolean showAmplitudes = false;
 
     private static final double EPS = 1e-9;
 
@@ -99,21 +95,21 @@ public class Spool_Reconstruct implements Command {
 
         // Optional background calibration from the dimmest 10% of pixels.
         if (autoBackground) {
-            final double[] inten = new double[H * W];
+            final double[] rawIntensity = new double[H * W];
             for (int p = 0; p < H * W; p++) {
                 double s = 0.0;
                 for (int t = 0; t < T; t++) s += Y[p * T + t];
-                inten[p] = s;
+                rawIntensity[p] = s;
             }
-            final double[] sorted = inten.clone();
+            final double[] sorted = rawIntensity.clone();
             java.util.Arrays.sort(sorted);
             final int cutIndex = Math.max(0, (int) Math.ceil(0.10 * sorted.length) - 1);
             final double cut = sorted[cutIndex];
             double bgSum = 0.0;
             long n = 0;
             for (int p = 0; p < H * W; p++) {
-                if (inten[p] <= cut) {
-                    bgSum += inten[p];
+                if (rawIntensity[p] <= cut) {
+                    bgSum += rawIntensity[p];
                     n++;
                 }
             }
@@ -139,89 +135,87 @@ public class Spool_Reconstruct implements Command {
                 psfSize[0], psfSize[1], background, iterations, eta, EPS);
         final double secs = (System.currentTimeMillis() - t0) / 1000.0;
 
-        // Lifetime map and source-space abundance.
+        // Lifetime map and reconstructed source-space intensity.
         final double[] tau = SpoolCore.parameterMap(A, taus, K, H, W, EPS);
-        final double[] abundance = new double[H * W];
-        double aMax = 0.0;
+        final double[] sourceIntensity = new double[H * W];
+        double iMax = 0.0;
         for (int p = 0; p < H * W; p++) {
             double s = 0.0;
             for (int k = 0; k < K; k++) s += A[k * H * W + p];
-            abundance[p] = s;
-            if (s > aMax) aMax = s;
+            sourceIntensity[p] = s;
+            if (s > iMax) iMax = s;
         }
 
         final float[] tauPx = new float[H * W];
         final float[] intPx = new float[H * W];
         for (int p = 0; p < H * W; p++) {
-            tauPx[p] = abundance[p] >= maskFrac * aMax ? (float) tau[p] : Float.NaN;
-            intPx[p] = (float) abundance[p];
+            tauPx[p] = sourceIntensity[p] >= maskFrac * iMax ? (float) tau[p] : Float.NaN;
+            intPx[p] = (float) sourceIntensity[p];
         }
 
-        // Output 1: source-space intensity (sum over lifetime components).
+        // Output 1: source-space SPOOL intensity, displayed with Red Hot LUT.
         final ImagePlus intImp = new ImagePlus(
                 imp.getShortTitle() + " SPOOL intensity",
                 new FloatProcessor(W, H, intPx));
         intImp.show();
-        IJ.run(intImp, "Fire", "");
+        IJ.run(intImp, "Red Hot", "");
 
-        // Output 2: abundance-masked lifetime map.
+        // Shared lifetime color scale for the lifetime and weighted-lifetime outputs.
+        final java.util.ArrayList<Float> vals = new java.util.ArrayList<>();
+        for (int p = 0; p < H * W; p++) {
+            if (!Float.isNaN(tauPx[p])) vals.add(tauPx[p]);
+        }
+        float tLo = (float) tauMin;
+        float tHi = (float) tauMax;
+        if (vals.size() > 10) {
+            java.util.Collections.sort(vals);
+            tLo = vals.get((int) (0.02 * (vals.size() - 1)));
+            tHi = vals.get((int) (0.98 * (vals.size() - 1)));
+            if (tHi - tLo < 1e-3f) {
+                tLo -= 0.05f;
+                tHi += 0.05f;
+            }
+        }
+
+        final byte[] rL = new byte[256];
+        final byte[] gL = new byte[256];
+        final byte[] bL = new byte[256];
+        for (int i = 0; i < 256; i++) {
+            final int c = Color.HSBtoRGB(0.75f * (1f - i / 255f), 1f, 1f);
+            rL[i] = (byte) ((c >> 16) & 0xff);
+            gL[i] = (byte) ((c >> 8) & 0xff);
+            bL[i] = (byte) (c & 0xff);
+        }
+        final ij.process.LUT sharedLut = new ij.process.LUT(rL, gL, bL);
+        IJ.log(String.format(
+                "SPOOL: lifetime color scale = %.2f-%.2f ns", tLo, tHi));
+
+        // Output 2: intensity-masked lifetime map.
         final ImagePlus tauImp = new ImagePlus(
                 imp.getShortTitle() + " SPOOL lifetime (ns)",
                 new FloatProcessor(W, H, tauPx));
+        tauImp.setLut(sharedLut);
+        tauImp.setDisplayRange(tLo, tHi);
         tauImp.show();
-        IJ.run(tauImp, "Rainbow RGB", "");
 
-        // Output 3: lifetime as hue and recovered abundance as brightness.
-        {
-            final java.util.ArrayList<Float> vals = new java.util.ArrayList<>();
-            for (int p = 0; p < H * W; p++) {
-                if (!Float.isNaN(tauPx[p])) vals.add(tauPx[p]);
-            }
+        // Output 3: lifetime as hue and recovered SPOOL intensity as brightness.
+        final double[] sortedIntensity = sourceIntensity.clone();
+        java.util.Arrays.sort(sortedIntensity);
+        final double iSat = Math.max(
+                sortedIntensity[(int) (0.995 * (sortedIntensity.length - 1))], 1e-12);
 
-            float tLo = (float) tauMin;
-            float tHi = (float) tauMax;
-            if (vals.size() > 10) {
-                java.util.Collections.sort(vals);
-                tLo = vals.get((int) (0.02 * (vals.size() - 1)));
-                tHi = vals.get((int) (0.98 * (vals.size() - 1)));
-                if (tHi - tLo < 1e-3f) {
-                    tLo -= 0.05f;
-                    tHi += 0.05f;
-                }
-            }
-
-            final double[] sortedAb = abundance.clone();
-            java.util.Arrays.sort(sortedAb);
-            final double aSat = Math.max(
-                    sortedAb[(int) (0.995 * (sortedAb.length - 1))], 1e-12);
-
-            final int[] rgb = new int[H * W];
-            for (int p = 0; p < H * W; p++) {
-                final float brightness = (float) Math.min(abundance[p] / aSat, 1.0);
-                final float frac = Float.isNaN(tauPx[p]) ? 0f
-                        : Math.min(Math.max((tauPx[p] - tLo) / (tHi - tLo), 0f), 1f);
-                final float hue = 0.75f * (1f - frac); // short tau blue/violet, long tau red
-                rgb[p] = Color.HSBtoRGB(hue, 1f, brightness);
-            }
-
-            final ImagePlus weightedImp = new ImagePlus(
-                    imp.getShortTitle() + " SPOOL intensity-weighted lifetime",
-                    new ColorProcessor(W, H, rgb));
-            weightedImp.show();
-            IJ.log(String.format(
-                    "SPOOL: weighted-lifetime color scale = %.2f-%.2f ns", tLo, tHi));
+        final int[] rgb = new int[H * W];
+        for (int p = 0; p < H * W; p++) {
+            final float brightness = (float) Math.min(sourceIntensity[p] / iSat, 1.0);
+            final float frac = Float.isNaN(tauPx[p]) ? 0f
+                    : Math.min(Math.max((tauPx[p] - tLo) / (tHi - tLo), 0f), 1f);
+            final float hue = 0.75f * (1f - frac); // short tau blue/violet, long tau red
+            rgb[p] = Color.HSBtoRGB(hue, 1f, brightness);
         }
-
-        if (showAmplitudes) {
-            final ImageStack amps = new ImageStack(W, H);
-            for (int k = 0; k < K; k++) {
-                final float[] ap = new float[H * W];
-                for (int p = 0; p < H * W; p++) ap[p] = (float) A[k * H * W + p];
-                amps.addSlice(String.format("tau = %.1f ns", taus[k]),
-                        new FloatProcessor(W, H, ap));
-            }
-            new ImagePlus(imp.getShortTitle() + " SPOOL amplitudes", amps).show();
-        }
+        final ImagePlus weightedImp = new ImagePlus(
+                imp.getShortTitle() + " SPOOL intensity-weighted lifetime",
+                new ColorProcessor(W, H, rgb));
+        weightedImp.show();
 
         IJ.showStatus(String.format(
                 "SPOOL: done in %.1f s (t0=%.2f bins, bg=%.4g)",
