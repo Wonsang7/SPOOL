@@ -108,11 +108,7 @@ Generation and reconstruction dictionaries are deliberately separated. Photon co
 
 The synthetic benchmark requires no external data. The experimental photon-count data are not redistributed here.
 
-- Dual-labeled FLIM: place `fov3_cube.npz`, `fov3_calib.npy`, and `fov3_FULLIMG_mle.npz` in `data/dual_labeled_flim/`, or set `SPOOL_FLIM_DATA_DIR`.
-- Bead/microtubule FLIM: place `Confocal_yellow_green_beads_488_px30nm.tif` and `Confocal_microtubule_Oregon_green_px39nm.tif` in `data/bead_microtubule/`, or set `SPOOL_BEAD_MICROTUBULE_DATA_DIR`.
-- Hyperspectral: place `decay_YXB_lambda.npy` in `data/hyperspectral/`, or set `SPOOL_HYPERSPECTRAL_RAW`. An optional pre-collapsed cube may be supplied as `hyperspectral_full.npy` or through `SPOOL_HYPERSPECTRAL_CUBE`.
 
-Experimental outputs default to `results/dual_labeled_flim/` and `results/hyperspectral/`. Override them with `SPOOL_FLIM_RESULTS_DIR` and `SPOOL_HYPERSPECTRAL_RESULTS_DIR`.
 
 ## Citation
 
