@@ -1,0 +1,89 @@
+name: Release Fiji Update Site
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FIJI_DOWNLOAD_URL: https://downloads.imagej.net/fiji/latest/fiji-linux64.zip
+      UPDATE_SITE: SPOOL
+      UPDATE_USER: Wonsang7
+      UPDATE_PASS: ${{ secrets.UPDATE_PASS }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: Build SPOOL Fiji plugin
+        run: mvn -B -f spool-fiji/pom.xml clean package -DskipTests
+
+      - name: Verify upload secret
+        shell: bash
+        run: |
+          if [ -z "${UPDATE_PASS}" ]; then
+            echo "Missing repository secret: UPDATE_PASS"
+            exit 1
+          fi
+
+      - name: Install Fiji and configure SPOOL update site
+        shell: bash
+        run: |
+          curl -fsSL "${FIJI_DOWNLOAD_URL}" -o fiji-linux64.zip
+          unzip -q fiji-linux64.zip
+          chmod +x Fiji.app/ImageJ-linux64
+
+          ./Fiji.app/ImageJ-linux64 --headless --update edit-update-site \
+            "${UPDATE_SITE}" \
+            "https://sites.imagej.net/${UPDATE_SITE}/" \
+            "webdav:${UPDATE_USER}:${UPDATE_PASS}" \
+            .
+
+          # Synchronize Fiji, including the current SPOOL update-site metadata,
+          # before replacing the plugin. This keeps the remote file history intact.
+          ./Fiji.app/ImageJ-linux64 --headless --update update
+
+      - name: Install release JAR into Fiji
+        shell: bash
+        run: |
+          JAR="$(find spool-fiji/target -maxdepth 1 -type f -name 'spool_fiji-*.jar' \
+            ! -name '*sources*' ! -name '*javadoc*' | head -n 1)"
+          if [ -z "${JAR}" ]; then
+            echo "Built SPOOL JAR not found"
+            exit 1
+          fi
+
+          mkdir -p Fiji.app/plugins
+          rm -f Fiji.app/plugins/spool_fiji*.jar
+          cp "${JAR}" Fiji.app/plugins/spool_fiji.jar
+          ls -lh Fiji.app/plugins/spool_fiji.jar
+
+      - name: Preview SPOOL update-site upload
+        working-directory: Fiji.app
+        run: |
+          ./ImageJ-linux64 --headless --update upload --simulate \
+            --update-site "${UPDATE_SITE}" \
+            --force-shadow \
+            plugins/spool_fiji.jar
+
+      - name: Publish SPOOL to Fiji update site
+        working-directory: Fiji.app
+        run: |
+          ./ImageJ-linux64 --headless --update upload \
+            --update-site "${UPDATE_SITE}" \
+            --force-shadow \
+            plugins/spool_fiji.jar
