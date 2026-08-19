@@ -27,7 +27,7 @@ pip install -r requirements.txt
 
 PyTorch is optional. If a CUDA-enabled PyTorch installation is available, the iterative reconstruction uses the GPU; otherwise it falls back to NumPy on the CPU.
 
-Optional GPU and FPFLI dependencies can be installed with:
+Optional GPU acceleration can be installed with:
 
 ```bash
 pip install -r requirements-optional.txt
@@ -45,13 +45,7 @@ Outputs are written to `results/multiemitter/`. To use another location:
 SPOOL_RESULTS_DIR=/path/to/results python run_multiemitter_benchmark.py
 ```
 
-The default run includes pixel-wise Poisson MLE, NC-PCA followed by NNLS, phasor analysis, and SPOOL. FPFLI is optional because it requires the authors' external repository and model weights:
-
-```bash
-FPFLI_REPO=/path/to/FPFLI \
-FPFLI_CKPT=/path/to/retrained_checkpoint.pth \
-python run_multiemitter_benchmark.py
-```
+The default run includes pixel-wise Poisson MLE, NC-PCA followed by NNLS, phasor analysis, and SPOOL.
 
 ### Single-emitter, oracle, and supplementary controls
 
@@ -71,24 +65,10 @@ dictionary, 50 SPOOL iterations, and damping exponent 0.9. The sensitivity
 driver generates its own condition-specific background levels for the stated
 signal-to-background-ratio sweep.
 
-### FPFLI retraining
-
-```bash
-python make_fpfli_trainset.py
-python Training_LLE.py
-```
-
-The first command generates `Training_data.mat` from the matched forward model.
-The generated 26 MB binary is intentionally excluded from Git because it can be
-recreated deterministically. Set `FPFLI_TRAINING_DATA` to change its location and
-`FPFLI_TRAINING_OUTPUT` to change the checkpoint directory.
-
 ## Files
 
 - `run_multiemitter_benchmark.py`: canonical manuscript benchmark runner
 - `flim_sim_ncpca.py`: forward model, scene generation, NC-PCA, phasor, and sequential baseline utilities
-- `fpfli_official_adapter.py`: optional adapter for the external FPFLI implementation
-- `download_official_weights.py`: optional helper for official FPFLI weights
 - `run_dual_labeled_flim.py`: dual-labeled experimental FLIM analysis
 - `run_hyperspectral.py`: experimental hyperspectral analysis
 - `run_bead_microtubule.py`: experimental bead and single-labeled microtubule photon-thinning analysis
@@ -98,7 +78,6 @@ recreated deterministically. Set `FPFLI_TRAINING_DATA` to change its location an
 - `run_sequential_controls.py`: Wiener, total-variation, and Richardson-Lucy sequential controls
 - `bias_ablation.py`: dictionary-spacing and early-stopping bias ablation
 - `runtime_benchmark.py`: f64/f32 GPU runtime, f64 CPU runtime, and peak GPU-memory benchmark
-- `make_fpfli_trainset.py`, `Training_LLE.py`, `Convmixer_tau.py`, `utils.py`: matched FPFLI retraining pipeline
 
 ## Reproducibility notes
 
@@ -108,12 +87,10 @@ Generation and reconstruction dictionaries are deliberately separated. Photon co
 
 The synthetic benchmark requires no external data. The experimental photon-count data are not redistributed here.
 
-
-
 ## Citation
 
 Citation information will be added when the manuscript is publicly available.
 
 ## License
 
-The original SPOOL code in this repository is released under the MIT License. External FPFLI code and weights remain subject to their original license and are not redistributed here.
+The SPOOL code in this repository is released under the MIT License.
