@@ -7,17 +7,15 @@ Simulation benchmark on bead phantoms, for TWO scene types, GPU-accelerated.
 THREE THINGS THIS VERSION GETS RIGHT
 ------------------------------------
 1. LIFETIME-AGNOSTIC RECONSTRUCTION DICTIONARY. Earlier versions reconstructed
-   the phantoms with the two TRUE decay bases. That is defensible on its own but
-   becomes indefensible next to a network retrained over a continuous 1-5 ns
-   range: the network would be solving a strictly harder problem than an
-   estimator handed the right answer. Generation and reconstruction are
-   therefore separated:
+   the phantoms with the two TRUE decay bases. To keep reconstruction agnostic
+   and matched to the experimental analysis, generation and reconstruction are
+   separated:
 
        GENERATION      K = 2,  tau = {2, 4} ns          (the truth)
        RECONSTRUCTION  K = 11, tau = 1.0-5.0 ns, 0.4    (as in the experiments)
 
    Every dictionary-based method -- pixel-wise MLE, NC-PCA + NNLS and the
-   proposed estimator -- now sees the same agnostic dictionary used on the real
+   proposed estimator -- sees the same agnostic dictionary used on the real
    data. Phasor is dictionary-free and unaffected.
 
 2. FIXED DETECTION-FAILURE COST. fs.lifetime_at_points normally falls back to
@@ -38,7 +36,7 @@ THREE THINGS THIS VERSION GETS RIGHT
 
 REQUIRES: flim_sim_ncpca.py in the same folder.
 
-    python sim_homo_hetero_panels_gpu.py
+    python run_multiemitter_benchmark.py
 """
 
 import os
@@ -60,16 +58,6 @@ import flim_sim_ncpca as fs
 # ============================ CONFIG ============================
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.environ.get("SPOOL_RESULTS_DIR", os.path.join(HERE, "results", "multiemitter"))
-
-# --- FPFLI ------------------------------------------------------------------
-FPFLI_REPO = os.environ.get("FPFLI_REPO", "")
-FPFLI_DEVICE = None                 # None -> cuda if available
-# Set to the retrained local-lifetime-estimator checkpoint to report the
-# architecture's ceiling on matched data; set to None to use the authors'
-# released weights, i.e. what a practitioner obtains by adopting the published
-# model. Both are worth reporting; run the benchmark twice with different
-# OUT_DIRs rather than replacing one with the other.
-FPFLI_CKPT = os.environ.get("FPFLI_CKPT")
 
 SCENES = {
     "heterogeneous": dict(n_species0=None),
@@ -110,12 +98,6 @@ BACKGROUND_MODE = "snb"
 SNB             = 50      # mean foreground signal / background, per pixel
 BG_PER_BIN      = 1e-4      # used only when BACKGROUND_MODE == "fixed"
 # ===============================================================
-
-try:
-    from fpfli_official_adapter import OfficialFPFLI, gaussian_irf
-    _FPFLI_IMPORTABLE = True
-except ImportError:
-    _FPFLI_IMPORTABLE = False
 
 # ---------------------------------------------------------------- backend
 USE_TORCH = False
@@ -327,11 +309,6 @@ def photon_budget(Lam, coords):
     return float(inten[fg].mean()), float(centre)
 
 
-def values_at_coords(image, coords, fallback=FALLBACK_TAU):
-    vals = np.asarray([image[y, x] for x, y in coords], dtype=float)
-    return np.where(np.isfinite(vals) & (vals > 0), vals, fallback)
-
-
 def masked_map(tau, weight, frac=0.1):
     thr = frac * max(float(weight.max()), EPS)
     return np.ma.array(tau, mask=(weight < thr) | ~np.isfinite(tau) | (tau <= 0))
@@ -363,35 +340,8 @@ def eval_phasor(Y, coords, tau_true):
     return float(np.sqrt(np.mean((th[ok] - tau_true[ok])**2))), 100.0*(1 - ok.sum()/len(th))
 
 
-def load_retrained_lle(fpfli, ckpt_path):
-    """Replace the adapter's local-lifetime-estimator weights with a retrained
-    checkpoint. The adapter's attribute name is not fixed, so the candidates
-    below are tried in turn and the one that accepts the state dict is used.
-    Raises if none does, rather than silently evaluating the released weights.
-    """
-    sd = torch.load(ckpt_path, map_location="cpu")
-    if isinstance(sd, dict) and "model" in sd and not any(
-            k.startswith(("embd", "conv", "ponit")) for k in sd):
-        sd = sd["model"]                       # training.pth wraps the state dict
-    tried = []
-    for name in ("lle", "model", "net", "local_model", "lifetime_model",
-                 "estimator", "lle_model"):
-        m = getattr(fpfli, name, None)
-        if m is None or not hasattr(m, "load_state_dict"):
-            continue
-        try:
-            m.load_state_dict(sd)
-            return name
-        except Exception as e:
-            tried.append(f"{name}: {type(e).__name__}")
-    raise RuntimeError(
-        "could not find the LLE submodule on the adapter. Attributes present: "
-        + ", ".join(a for a in dir(fpfli) if not a.startswith("_"))
-        + ("; load attempts: " + "; ".join(tried) if tried else ""))
-
-
 # ---------------------------------------------------------------- main
-def run_scene(name, cfg, fpfli=None, fpfli_irf=None):
+def run_scene(name, cfg):
     print(f"\n=== {name} ===")
     out = os.path.join(OUT_DIR, name)
     os.makedirs(out, exist_ok=True)
@@ -408,8 +358,6 @@ def run_scene(name, cfg, fpfli=None, fpfli_irf=None):
     C = conv_batch(ones, o) * Dsum_d.reshape(K_REC, 1, 1)
 
     methods = ["MLE", "PCA", "Phasor", "Proposed"]
-    if fpfli is not None:
-        methods.insert(3, "FPFLI")
     res = {m: {"rmse_mean": [], "rmse_std": []} for m in methods}
     res["photons_fg_mean"] = []; res["photons_centre_px"] = []
     res["emitter_photons"] = []; res["phasor_failure_pct"] = []
@@ -419,7 +367,6 @@ def run_scene(name, cfg, fpfli=None, fpfli_irf=None):
     res["bg_per_bin"] = []
     res["tau_reconstruction"] = TAU_REC.tolist()
     res["tau_generation"] = TAU_GEN.tolist()
-    res["fpfli_checkpoint"] = FPFLI_CKPT if fpfli is not None else None
     qual = None
 
     for pl in PHOTON_LEVELS:
@@ -454,25 +401,12 @@ def run_scene(name, cfg, fpfli=None, fpfli_irf=None):
                 r_ph, fail = eval_phasor(Y, coords, tau_true)   # dictionary-free
                 per["Phasor"].append(r_ph); fails.append(fail)
 
-                fp = None
-                if fpfli is not None:
-                    fp = fpfli.predict(Y, irf=fpfli_irf)
-                    if fp is None or "lifetime_ns" not in fp:
-                        fp = None
-                        per["FPFLI"].append(np.nan)
-                    else:
-                        vals = values_at_coords(np.asarray(fp["lifetime_ns"]), coords)
-                        per["FPFLI"].append(float(np.sqrt(np.mean(
-                            (vals - tau_true) ** 2))))
-
                 A_j = to_np(joint_gpu(Y_d, D_d, o, C, bg))
                 per["Proposed"].append(float(np.sqrt(np.mean(
                     (lifetime_at(A_j, coords, TAU_REC) - tau_true) ** 2))))
 
             if pl == QUAL_PHOTONS and trial == 0:
-                qual = dict(A_true=A_true, Y=Y, A_mle=A_mle, A_pca=A_pca, A_joint=A_j,
-                            tau_fp=(np.asarray(fp["lifetime_ns"]) if fp is not None else None),
-                            fp_intensity=(np.asarray(fp["intensity"]) if fp is not None else None))
+                qual = dict(A_true=A_true, Y=Y, A_mle=A_mle, A_pca=A_pca, A_joint=A_j)
 
         for m in methods:
             res[m]["rmse_mean"].append(float(np.nanmean(per[m])))
@@ -496,17 +430,13 @@ def run_scene(name, cfg, fpfli=None, fpfli_irf=None):
     tau_ph, _, _ = fs.phasor_lifetime_map(qual["Y"], dt_ns=fs.DT_NS, freq_mhz=PHASOR_MHZ)
     save_panel(masked_map(tau_ph, qual["Y"].sum(axis=2)),
                os.path.join(out, "qual_Phasor.png"), cmap, LIFE_LO, LIFE_HI)
-    if qual.get("tau_fp") is not None:
-        save_panel(masked_map(qual["tau_fp"], qual["fp_intensity"]),
-                   os.path.join(out, "qual_FPFLI.png"), cmap, LIFE_LO, LIFE_HI)
     save_panel(masked_map(tau_map(qual["A_joint"], TAU_REC), qual["A_joint"].sum(0)),
                os.path.join(out, "qual_Proposed.png"), cmap, LIFE_LO, LIFE_HI)
     save_colorbar(cmap, LIFE_LO, LIFE_HI, "Lifetime (ns)",
                   os.path.join(out, "colorbar_lifetime.png"))
 
     style = {"MLE": ("#7f7f7f", "o"), "PCA": ("#1f77b4", "s"),
-             "Phasor": ("#9467bd", "v"), "FPFLI": ("#ff7f0e", "^"),
-             "Proposed": ("#d62728", "D")}
+             "Phasor": ("#9467bd", "v"), "Proposed": ("#d62728", "D")}
     fig, ax = plt.subplots(figsize=(7, 6))
     x = res["photons_fg_mean"]
     for m in methods:
@@ -551,36 +481,10 @@ def main():
         print(f"        nodes, so quantization bias is zero for them; the")
         print(f"        single-emitter study places its truth midway on purpose.")
 
-    fpfli = fpfli_irf = None
-    if not _FPFLI_IMPORTABLE:
-        print("\nFPFLI: skipped (fpfli_official_adapter.py not found)")
-    elif not FPFLI_REPO:
-        print("\nFPFLI: skipped (FPFLI_REPO not set)")
-    else:
-        try:
-            # dt_ns MUST match the value the training set was built against:
-            # _predict_local_lifetime multiplies the LLE output by dt_ns*100, so
-            # leaving it at the adapter's 0.039 default while the data are
-            # sampled at fs.DT_NS rescales every prediction by their ratio.
-            fpfli = OfficialFPFLI(FPFLI_REPO, dt_ns=fs.DT_NS, device=FPFLI_DEVICE)
-            fpfli_irf = gaussian_irf(n_bins=fs.N_TIME_BINS, dt_ns=fs.DT_NS,
-                                     fwhm_ns=fs.IRF_FWHM_NS, peak_bin=fs.IRF_PEAK_BIN)
-            print(f"\nFPFLI: dt_ns = {fs.DT_NS:.4f} -> the adapter scales the LLE "
-                  f"output by {fs.DT_NS*100:.3f}")
-            if FPFLI_CKPT:
-                where = load_retrained_lle(fpfli, FPFLI_CKPT)
-                print(f"       RETRAINED weights loaded into '.{where}'")
-                print(f"       {FPFLI_CKPT}")
-            else:
-                print(f"\nFPFLI: released weights from {FPFLI_REPO}")
-        except Exception as e:
-            print(f"\nFPFLI: skipped ({type(e).__name__}: {e})")
-            fpfli = None
-
     os.makedirs(OUT_DIR, exist_ok=True)
     t0 = time.time()
     for name, cfg in SCENES.items():
-        run_scene(name, cfg, fpfli=fpfli, fpfli_irf=fpfli_irf)
+        run_scene(name, cfg)
     print(f"\nAll done in {time.time()-t0:.0f}s. Panels in {OUT_DIR}")
 
 
