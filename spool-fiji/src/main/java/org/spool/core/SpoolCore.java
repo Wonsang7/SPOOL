@@ -6,7 +6,8 @@ package org.spool.core;
  *
  * Numerically mirrors {@code run_multiemitter_benchmark.py} in the SPOOL
  * repository: zero-padded linear convolution with a centered "same" crop,
- * EPS-regularized ratios, and the damped update A *= (U/C)^eta.
+ * EPS-regularized ratios, the damped update A *= (U/C)^eta, and a 1e-8
+ * non-negativity floor after each SPOOL update.
  *
  * Array layout (all row-major / C-order, matching the Python fixture):
  *   Y : double[H*W*T]  photon-count cube, index (h*W + w)*T + t
@@ -150,6 +151,7 @@ public final class SpoolCore {
                     double ratio = u[p] / c;
                     if (ratio < 0.0) ratio = 0.0;
                     A[base + p] *= Math.pow(ratio, eta);
+                    A[base + p] = Math.max(A[base + p], 1e-8);
                 }
             }
         }
