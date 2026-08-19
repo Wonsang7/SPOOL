@@ -265,6 +265,7 @@ def joint_gpu(Y_d, D_d, o, C, bg, n_iter=N_ITER, eta=ETA):
         lam = _einsum_khw_kt(conv_batch(A, o), D_d) + bg
         U = corr_batch(_einsum_hwt_kt(Y_d / (lam + EPS), D_d), o)
         A = A * _clip0(U / (C + EPS)) ** eta
+        A = torch.clamp(A, min=1e-8) if USE_TORCH else np.maximum(A, 1e-8)
     return A
 
 
