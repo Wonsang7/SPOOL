@@ -1,4 +1,2 @@
-# Optional GPU acceleration and FPFLI support
+# Optional GPU acceleration
 torch>=2.1
-gdown>=5.0
-torchsummary>=1.5
