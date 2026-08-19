@@ -4,6 +4,8 @@ Reference simulation code for **Spatially pooling photon information enables pho
 
 SPOOL (Spatially Pooled Optical Observation Likelihood) jointly estimates source-space component amplitudes from photon-count data using a known point-spread function (PSF) and a contrast dictionary. This repository reproduces the homogeneous and heterogeneous multi-emitter FLIM benchmarks and includes the dual-labeled FLIM and hyperspectral analysis drivers.
 
+[Open the SPOOL Google Colab demo](https://colab.research.google.com/github/Wonsang7/SPOOL/blob/main/SPOOL_demo.ipynb)
+
 ## Implemented manuscript settings
 
 - 15 emitters on a 100 x 100 pixel field
@@ -67,6 +69,7 @@ signal-to-background-ratio sweep.
 
 ## Files
 
+- `SPOOL_demo.ipynb`: interactive Google Colab demonstration
 - `run_multiemitter_benchmark.py`: canonical manuscript benchmark runner
 - `flim_sim_ncpca.py`: forward model, scene generation, NC-PCA, phasor, and sequential baseline utilities
 - `run_dual_labeled_flim.py`: dual-labeled experimental FLIM analysis
