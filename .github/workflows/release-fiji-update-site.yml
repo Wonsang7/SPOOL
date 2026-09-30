@@ -51,9 +51,9 @@ jobs:
         run: |
           curl -fsSL "${FIJI_DOWNLOAD_URL}" -o fiji-linux64.zip
           unzip -q fiji-linux64.zip
-          chmod +x Fiji.app/ImageJ-linux64
+          chmod +x Fiji.app/fiji Fiji.app/fiji-linux-x64
 
-          ./Fiji.app/ImageJ-linux64 --headless --update edit-update-site \
+          ./Fiji.app/fiji --java-home "${JAVA_HOME}" --headless --update edit-update-site \
             "${UPDATE_SITE}" \
             "https://sites.imagej.net/${UPDATE_SITE}/" \
             "webdav:${UPDATE_USER}:${UPDATE_PASS}" \
@@ -61,7 +61,7 @@ jobs:
 
           # Synchronize Fiji, including the current SPOOL update-site metadata,
           # before replacing the plugin. This keeps the remote file history intact.
-          ./Fiji.app/ImageJ-linux64 --headless --update update
+          ./Fiji.app/fiji --java-home "${JAVA_HOME}" --headless --update update
 
       - name: Install release JAR into Fiji
         shell: bash
@@ -81,7 +81,7 @@ jobs:
       - name: Preview SPOOL update-site upload
         working-directory: Fiji.app
         run: |
-          ./ImageJ-linux64 --headless --update upload --simulate \
+          ./fiji --java-home "${JAVA_HOME}" --headless --update upload --simulate \
             --update-site "${UPDATE_SITE}" \
             --force-shadow \
             "${UPDATE_JAR}"
@@ -89,7 +89,7 @@ jobs:
       - name: Publish SPOOL to Fiji update site
         working-directory: Fiji.app
         run: |
-          ./ImageJ-linux64 --headless --update upload \
+          ./fiji --java-home "${JAVA_HOME}" --headless --update upload \
             --update-site "${UPDATE_SITE}" \
             --force-shadow \
             "${UPDATE_JAR}"
