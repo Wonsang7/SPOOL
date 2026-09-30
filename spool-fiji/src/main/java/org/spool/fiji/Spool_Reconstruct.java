@@ -14,6 +14,7 @@ import org.scijava.plugin.Plugin;
 
 import org.spool.core.SpoolCore;
 import org.spool.core.SpoolModel;
+import org.spool.core.SpoolReconstruction;
 
 /**
  * SPOOL: photon-efficient FLIM reconstruction (training-free Poisson inverse
@@ -59,6 +60,10 @@ public class Spool_Reconstruct implements Command {
     @Parameter(label = "Iterations", min = "1")
     private int iterations = 50;
 
+    @Parameter(label = "Use GPU (auto-detect)",
+               description = "Use a compatible OpenCL GPU when available. Otherwise restart on CPU and report the reason in the Log window.")
+    private boolean useGpu = false;
+
     @Parameter(label = "Damping exponent eta", min = "0.1", max = "1.0")
     private double eta = 0.9;
 
@@ -69,11 +74,38 @@ public class Spool_Reconstruct implements Command {
 
     @Override
     public void run() {
+        if (imp == null) {
+            IJ.error("SPOOL", "Please open a photon-count stack first.");
+            return;
+        }
+        if (!Double.isFinite(psfFwhmNm) || psfFwhmNm <= 0 ||
+                !Double.isFinite(pixelNm) || pixelNm <= 0 ||
+                !Double.isFinite(dtNs) || dtNs <= 0 ||
+                !Double.isFinite(irfFwhmNs) || irfFwhmNs <= 0 ||
+                !Double.isFinite(tauMin) || tauMin <= 0 ||
+                !Double.isFinite(tauMax) || tauMax < tauMin ||
+                !Double.isFinite(tauStep) || tauStep <= 0 ||
+                !Double.isFinite(background) || background < 0 ||
+                iterations < 1 || !Double.isFinite(eta) || eta <= 0 || eta > 1 ||
+                !Double.isFinite(maskFrac) || maskFrac < 0) {
+            IJ.error("SPOOL", "Please enter finite, valid reconstruction parameters. Widths and lifetimes must be positive.");
+            return;
+        }
         final int W = imp.getWidth();
         final int H = imp.getHeight();
         final int T = imp.getStackSize();
         if (T < 8) {
             IJ.error("SPOOL", "Expected an x-y-t photon-count stack (one slice per time bin).");
+            return;
+        }
+
+        final double componentCount = Math.round((tauMax - tauMin) / tauStep) + 1.0;
+        final double psfSide = 2.0 * Math.max(Math.ceil(4.0 *
+                (psfFwhmNm / SpoolModel.FWHM_TO_SIGMA) / pixelNm), 1.0) + 1.0;
+        if ((long) H * W * T > Integer.MAX_VALUE ||
+                componentCount * H * W > Integer.MAX_VALUE ||
+                componentCount * T > Integer.MAX_VALUE || psfSide * psfSide > Integer.MAX_VALUE) {
+            IJ.error("SPOOL", "The stack or model exceeds Java array limits. Use a smaller stack or dictionary.");
             return;
         }
 
@@ -83,7 +115,13 @@ public class Spool_Reconstruct implements Command {
         final ImageStack st = imp.getStack();
         for (int t = 0; t < T; t++) {
             final float[] px = (float[]) st.getProcessor(t + 1).convertToFloatProcessor().getPixels();
-            for (int p = 0; p < H * W; p++) Y[p * T + t] = px[p];
+            for (int p = 0; p < H * W; p++) {
+                if (!Float.isFinite(px[p]) || px[p] < 0) {
+                    IJ.error("SPOOL", "Photon counts must be finite and nonnegative.");
+                    return;
+                }
+                Y[p * T + t] = px[p];
+            }
         }
 
         // Automatic t0 detection from the global leading edge. This avoids the
@@ -131,8 +169,20 @@ public class Spool_Reconstruct implements Command {
                 "SPOOL: reconstructing (t0=%.2f bins, K=%d, %d iterations)",
                 irfPeakBin, K, iterations));
         final long t0 = System.currentTimeMillis();
-        final double[] A = SpoolCore.joint(Y, D, psf, H, W, T, K,
-                psfSize[0], psfSize[1], background, iterations, eta, EPS);
+        final SpoolReconstruction.Result reconstruction;
+        try {
+            final SpoolReconstruction.Request request = new SpoolReconstruction.Request(
+                    Y, D, psf, H, W, T, K, psfSize[0], psfSize[1],
+                    background, iterations, eta, EPS);
+            reconstruction = SpoolReconstruction.run(request, useGpu, message -> {
+                IJ.log(message);
+                IJ.showStatus(message);
+            });
+        } catch (IllegalArgumentException failure) {
+            IJ.error("SPOOL", failure.getMessage());
+            return;
+        }
+        final double[] A = reconstruction.amplitudes;
         final double secs = (System.currentTimeMillis() - t0) / 1000.0;
 
         // Lifetime map and reconstructed source-space intensity.
@@ -218,7 +268,8 @@ public class Spool_Reconstruct implements Command {
         weightedImp.show();
 
         IJ.showStatus(String.format(
-                "SPOOL: done in %.1f s (t0=%.2f bins, bg=%.4g)",
-                secs, irfPeakBin, background));
+                "SPOOL: done in %.1f s using %s (t0=%.2f bins, bg=%.4g)",
+                secs, reconstruction.backend, irfPeakBin, background));
+        IJ.log(String.format("SPOOL: completed in %.3f s using %s", secs, reconstruction.backend));
     }
 }

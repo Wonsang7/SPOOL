@@ -29,8 +29,11 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Build SPOOL Fiji plugin
-        run: mvn -B -f spool-fiji/pom.xml clean package -DskipTests
+      - name: Install OpenCL reference runtime for numerical tests
+        run: sudo apt-get update && sudo apt-get install -y pocl-opencl-icd
+
+      - name: Build and test SPOOL Fiji plugin
+        run: mvn -B -f spool-fiji/pom.xml clean verify -Dspool.test.opencl=true -Dspool.test.cpuOnly=true
 
       - name: Verify upload secret
         shell: bash
