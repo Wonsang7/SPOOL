@@ -64,7 +64,7 @@ jobs:
         shell: bash
         run: |
           JAR="$(find spool-fiji/target -maxdepth 1 -type f -name 'spool_fiji-*.jar' \
-            ! -name '*sources*' ! -name '*javadoc*' | head -n 1)"
+            ! -name '*sources*' ! -name '*javadoc*' ! -name '*-tests.jar' | head -n 1)"
           if [ -z "${JAR}" ]; then
             echo "Built SPOOL JAR not found"
             exit 1
