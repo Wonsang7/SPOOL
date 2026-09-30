@@ -17,7 +17,15 @@ SPOOL (Spatially Pooled Optical Observation Likelihood) jointly estimates source
 - eight Poisson trials per photon level
 - SPOOL: 50 iterations with damping exponent 0.9
 
-## Installation
+## Fiji plugin
+
+Enable the **SPOOL** update site in Fiji, then use **Plugins > SPOOL > SPOOL
+Reconstruct (FLIM)**. The Java plugin includes an optional **Use GPU
+(auto-detect)** checkbox. A compatible OpenCL GPU and driver are required;
+unavailable or failed GPU execution falls back to the reference CPU solver.
+See [Fiji installation, GPU requirements and validation](spool-fiji/README.md).
+
+## Python installation
 
 Python 3.10 or newer is recommended.
 

@@ -13,10 +13,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      FIJI_DOWNLOAD_URL: https://downloads.imagej.net/fiji/latest/fiji-linux64.zip
+      FIJI_DOWNLOAD_URL: https://downloads.imagej.net/fiji/stable/fiji-stable-linux64-jdk.zip
       UPDATE_SITE: SPOOL
       UPDATE_USER: Wonsang7
       UPDATE_PASS: ${{ secrets.UPDATE_PASS }}
+      # Preserve the existing public updater entry so installed copies upgrade
+      # in place. The JAR's internal Maven version is the actual release version.
+      UPDATE_JAR: plugins/spool_fiji-0.1.2-SNAPSHOT.jar
 
     steps:
       - name: Check out repository
@@ -29,8 +32,11 @@ jobs:
           java-version: '17'
           cache: maven
 
-      - name: Build SPOOL Fiji plugin
-        run: mvn -B -f spool-fiji/pom.xml clean package -DskipTests
+      - name: Install OpenCL reference runtime for numerical tests
+        run: sudo apt-get update && sudo apt-get install -y pocl-opencl-icd
+
+      - name: Build and test SPOOL Fiji plugin
+        run: mvn -B -f spool-fiji/pom.xml clean verify -Dspool.test.opencl=true -Dspool.test.cpuOnly=true
 
       - name: Verify upload secret
         shell: bash
@@ -45,9 +51,9 @@ jobs:
         run: |
           curl -fsSL "${FIJI_DOWNLOAD_URL}" -o fiji-linux64.zip
           unzip -q fiji-linux64.zip
-          chmod +x Fiji.app/ImageJ-linux64
+          chmod +x Fiji.app/fiji Fiji.app/fiji-linux-x64
 
-          ./Fiji.app/ImageJ-linux64 --headless --update edit-update-site \
+          ./Fiji.app/fiji --java-home "${JAVA_HOME}" --headless --update edit-update-site \
             "${UPDATE_SITE}" \
             "https://sites.imagej.net/${UPDATE_SITE}/" \
             "webdav:${UPDATE_USER}:${UPDATE_PASS}" \
@@ -55,13 +61,13 @@ jobs:
 
           # Synchronize Fiji, including the current SPOOL update-site metadata,
           # before replacing the plugin. This keeps the remote file history intact.
-          ./Fiji.app/ImageJ-linux64 --headless --update update
+          ./Fiji.app/fiji --java-home "${JAVA_HOME}" --headless --update update
 
       - name: Install release JAR into Fiji
         shell: bash
         run: |
           JAR="$(find spool-fiji/target -maxdepth 1 -type f -name 'spool_fiji-*.jar' \
-            ! -name '*sources*' ! -name '*javadoc*' | head -n 1)"
+            ! -name '*sources*' ! -name '*javadoc*' ! -name '*-tests.jar' | head -n 1)"
           if [ -z "${JAR}" ]; then
             echo "Built SPOOL JAR not found"
             exit 1
@@ -69,21 +75,21 @@ jobs:
 
           mkdir -p Fiji.app/plugins
           rm -f Fiji.app/plugins/spool_fiji*.jar
-          cp "${JAR}" Fiji.app/plugins/spool_fiji.jar
-          ls -lh Fiji.app/plugins/spool_fiji.jar
+          cp "${JAR}" "Fiji.app/${UPDATE_JAR}"
+          ls -lh "Fiji.app/${UPDATE_JAR}"
 
       - name: Preview SPOOL update-site upload
         working-directory: Fiji.app
         run: |
-          ./ImageJ-linux64 --headless --update upload --simulate \
+          ./fiji --java-home "${JAVA_HOME}" --headless --update upload --simulate \
             --update-site "${UPDATE_SITE}" \
             --force-shadow \
-            plugins/spool_fiji.jar
+            "${UPDATE_JAR}"
 
       - name: Publish SPOOL to Fiji update site
         working-directory: Fiji.app
         run: |
-          ./ImageJ-linux64 --headless --update upload \
+          ./fiji --java-home "${JAVA_HOME}" --headless --update upload \
             --update-site "${UPDATE_SITE}" \
             --force-shadow \
-            plugins/spool_fiji.jar
+            "${UPDATE_JAR}"
