@@ -63,7 +63,7 @@ Java heap memory for the existing CPU representation.
 mvn -f spool-fiji/pom.xml clean verify
 ```
 
-The deployable artifact is `spool-fiji/target/spool_fiji-0.2.0-SNAPSHOT.jar`.
+The deployable artifact is `spool-fiji/target/spool_fiji-0.2.0.jar`.
 The `original-*.jar` produced by the packaging step does not include JOCL and
 must not be distributed as the GPU-enabled plugin.
 
@@ -83,7 +83,7 @@ unnormalized dictionary rows, zero counts, small images, and 50 iterations.
 The sparse-photon lifetime comparison requires a maximum difference below
 `1e-4 ns` for that fixture; this is not a general scientific accuracy guarantee.
 
-Before a public GPU release, run on a machine with a supported graphics card:
+For graphics-card validation, run on a machine with a supported GPU:
 
 ```sh
 mvn -f spool-fiji/pom.xml clean verify -Dspool.test.opencl=true -Dspool.test.requireGpu=true
@@ -93,6 +93,10 @@ Also run a representative experimental stack in Fiji with the checkbox both
 off and on. Compare lifetime/intensity maps, record total time and device/driver
 information, and check the log confirms GPU execution. The existing update-site
 release workflow publishes only after its tests pass.
+
+Version 0.2.0 has passed the POCL numerical tests. Physical GPU compatibility and
+speed measurements have not yet been established. GPU use remains opt-in, with
+the numerical self-test and CPU fallback enabled.
 
 ## Third-party component
 

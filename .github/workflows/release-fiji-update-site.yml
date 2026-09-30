@@ -13,10 +13,13 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      FIJI_DOWNLOAD_URL: https://downloads.imagej.net/fiji/latest/fiji-linux64.zip
+      FIJI_DOWNLOAD_URL: https://downloads.imagej.net/fiji/stable/fiji-stable-linux64-jdk.zip
       UPDATE_SITE: SPOOL
       UPDATE_USER: Wonsang7
       UPDATE_PASS: ${{ secrets.UPDATE_PASS }}
+      # Preserve the existing public updater entry so installed copies upgrade
+      # in place. The JAR's internal Maven version is the actual release version.
+      UPDATE_JAR: plugins/spool_fiji-0.1.2-SNAPSHOT.jar
 
     steps:
       - name: Check out repository
@@ -72,8 +75,8 @@ jobs:
 
           mkdir -p Fiji.app/plugins
           rm -f Fiji.app/plugins/spool_fiji*.jar
-          cp "${JAR}" Fiji.app/plugins/spool_fiji.jar
-          ls -lh Fiji.app/plugins/spool_fiji.jar
+          cp "${JAR}" "Fiji.app/${UPDATE_JAR}"
+          ls -lh "Fiji.app/${UPDATE_JAR}"
 
       - name: Preview SPOOL update-site upload
         working-directory: Fiji.app
@@ -81,7 +84,7 @@ jobs:
           ./ImageJ-linux64 --headless --update upload --simulate \
             --update-site "${UPDATE_SITE}" \
             --force-shadow \
-            plugins/spool_fiji.jar
+            "${UPDATE_JAR}"
 
       - name: Publish SPOOL to Fiji update site
         working-directory: Fiji.app
@@ -89,4 +92,4 @@ jobs:
           ./ImageJ-linux64 --headless --update upload \
             --update-site "${UPDATE_SITE}" \
             --force-shadow \
-            plugins/spool_fiji.jar
+            "${UPDATE_JAR}"
