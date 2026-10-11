@@ -23,7 +23,7 @@ Enable the **SPOOL** update site in Fiji, then use **Plugins > SPOOL > SPOOL
 Reconstruct (FLIM)**. The Java plugin includes an optional **Use GPU
 (auto-detect)** checkbox. A compatible OpenCL GPU and driver are required;
 unavailable or failed GPU execution falls back to the reference CPU solver.
-See [Fiji installation, GPU requirements and validation](spool-fiji/README.md).
+See [Fiji installation, running-version/duplicate-JAR checks, GPU requirements and validation](spool-fiji/README.md).
 
 ## Python installation
 

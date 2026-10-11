@@ -34,7 +34,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pocl-opencl-icd
 
       - name: Build and test Fiji plugin JAR
-        run: mvn -B -f spool-fiji/pom.xml clean verify -Dspool.test.opencl=true -Dspool.test.cpuOnly=true
+        run: mvn -B -f spool-fiji/pom.xml clean verify -Dspool.test.opencl=true -Dspool.test.cpuOnly=true -Dspool.build.id="$GITHUB_SHA"
 
       - name: Show built JAR
         run: ls -lh spool-fiji/target/*.jar

@@ -74,6 +74,7 @@ public class Spool_Reconstruct implements Command {
 
     @Override
     public void run() {
+        IJ.log(PluginBuildInfo.describe(Spool_Reconstruct.class));
         if (imp == null) {
             IJ.error("SPOOL", "Please open a photon-count stack first.");
             return;
