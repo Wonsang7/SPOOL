@@ -36,7 +36,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y pocl-opencl-icd
 
       - name: Build and test SPOOL Fiji plugin
-        run: mvn -B -f spool-fiji/pom.xml clean verify -Dspool.test.opencl=true -Dspool.test.cpuOnly=true
+        run: mvn -B -f spool-fiji/pom.xml clean verify -Dspool.test.opencl=true -Dspool.test.cpuOnly=true -Dspool.build.id="$GITHUB_SHA"
 
       - name: Verify upload secret
         shell: bash
@@ -76,6 +76,8 @@ jobs:
           mkdir -p Fiji.app/plugins
           rm -f Fiji.app/plugins/spool_fiji*.jar
           cp "${JAR}" "Fiji.app/${UPDATE_JAR}"
+          # Upload exactly the shaded artifact whose metadata passed verify.
+          cmp "${JAR}" "Fiji.app/${UPDATE_JAR}"
           ls -lh "Fiji.app/${UPDATE_JAR}"
 
       - name: Preview SPOOL update-site upload

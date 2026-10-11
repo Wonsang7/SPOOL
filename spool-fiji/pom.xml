@@ -14,7 +14,7 @@
 
     <groupId>org.spool</groupId>
     <artifactId>spool_fiji</artifactId>
-    <version>0.2.0</version>
+    <version>0.2.1</version>
 
     <name>SPOOL for Fiji</name>
     <description>
@@ -81,6 +81,7 @@
     </ciManagement>
 
     <properties>
+        <spool.build.id>unknown</spool.build.id>
         <package-name>org.spool</package-name>
         <license.licenseName>mit</license.licenseName>
         <license.copyrightOwners>Wonsang Hwang</license.copyrightOwners>
@@ -113,7 +114,45 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+            <resource>
+                <directory>src/main/build-metadata</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <manifestEntries>
+                            <Implementation-Version>${project.version}</Implementation-Version>
+                            <SPOOL-Build-Id>${spool.build.id}</SPOOL-Build-Id>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals><goal>integration-test</goal><goal>verify</goal></goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <systemPropertyVariables>
+                        <spool.test.jar>${project.build.directory}/${project.build.finalName}.jar</spool.test.jar>
+                        <spool.test.version>${project.version}</spool.test.version>
+                        <spool.test.build.id>${spool.build.id}</spool.test.build.id>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
